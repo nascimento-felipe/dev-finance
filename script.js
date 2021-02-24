@@ -16,33 +16,30 @@ const Modal = {
     }
 };
 
+//  Constante que guarda as funções de 
+// guardar as informações. ↓
+const Storage = {
+    get() {
+        return JSON.parse(localStorage.getItem("dev.finances:transactions")) || [];
+    },
+
+    set(transactions) {
+        localStorage.setItem("dev.finances:transactions", JSON.stringify(transactions));
+    }
+}
+
 //  Constante que guarda as funções de contagem
 // na tabela e na parte de balanço. ↓
-const BalanceValues = {
+const Transactions = {
 
     //  Propriedade da constante que tem
     // todas as transações. ↓
-    all: [{
-            description: 'Luz',
-            amount: -50000,
-            date: '23/01/2021'
-        },
-        {
-            description: 'Website',
-            amount: 500000,
-            date: '23/01/2021'
-        },
-        {
-            description: 'Internet',
-            amount: -20000,
-            date: '23/01/2021'
-        }
-    ],
+    all: Storage.get(),
 
     //  Função que adiciona uma nova transação ao
     // array de transações. ↓
     add(transaction) {
-        BalanceValues.all.push(transaction);
+        Transactions.all.push(transaction);
 
         App.reload();
     },
@@ -50,7 +47,7 @@ const BalanceValues = {
     //  Função que remove uma transação do array
     // de transações. ↓
     remove(index) {
-        BalanceValues.all.splice(index, 1);
+        Transactions.all.splice(index, 1);
 
         App.reload();
     },
@@ -60,7 +57,7 @@ const BalanceValues = {
         // soma as entradas
         let income = 0;
 
-        BalanceValues.all.forEach(function (transaction) {
+        Transactions.all.forEach(function (transaction) {
             transaction.amount > 0 ? income += transaction.amount : income += 0;
         });
 
@@ -72,7 +69,7 @@ const BalanceValues = {
         // soma as saídas
         let expense = 0
 
-        BalanceValues.all.forEach(function (transaction) {
+        Transactions.all.forEach(function (transaction) {
             transaction.amount < 0 ? expense += transaction.amount : expense += 0;
         });
 
@@ -82,7 +79,7 @@ const BalanceValues = {
     // Função que calcula o total. ↓ 
     total() {
         // entradas - saídas
-        return BalanceValues.incomes() + BalanceValues.expenses();
+        return Transactions.incomes() + Transactions.expenses();
     }
 };
 
@@ -96,12 +93,15 @@ const DOM = {
     // final desse aquivo, linha 78 ↓
     addTransaction(transaction, index) {
         const tr = document.createElement('tr');
-        tr.innerHTML = DOM.innerHTMLTransaction(transaction);
+        tr.innerHTML = DOM.innerHTMLTransaction(transaction, index);
+
+        tr.dataset.index = index;
+
         DOM.transactionsContainer.appendChild(tr);
     },
 
     // Elemento html da tabela é modificado aqui ↓
-    innerHTMLTransaction(transaction) {
+    innerHTMLTransaction(transaction, index) {
         const CSSclass = transaction.amount > 0 ? "income" : "expense";
         const amount = Util.formatCurrency(transaction.amount);
         const html =
@@ -110,25 +110,25 @@ const DOM = {
             <td class="${CSSclass}">${amount}</td>
             <td class="date">${transaction.date}</td>
             <td>
-                <img src="./assets/minus.svg" alt="Remover transação">
+                <img onclick="Transactions.remove(${index})" src="./assets/minus.svg" alt="Remover transação">
             </td>
         `
         return html;
     },
 
     // Atualização das entradas e das saídas ↓
-    updateBalanceValues() {
+    updateBalance() {
         document
             .getElementById('incomeDisplay')
-            .innerHTML = Util.formatCurrency(BalanceValues.incomes());
+            .innerHTML = Util.formatCurrency(Transactions.incomes());
 
         document
             .getElementById('expenseDisplay')
-            .innerHTML = Util.formatCurrency(BalanceValues.expenses());
+            .innerHTML = Util.formatCurrency(Transactions.expenses());
 
         document
             .querySelector('#totalDisplay')
-            .innerHTML = Util.formatCurrency(BalanceValues.total());
+            .innerHTML = Util.formatCurrency(Transactions.total());
     },
     // Limpeza da  tabela antes de dar um reload, pra poder colocar
     // as informações velhas e novas juntas ↓
@@ -167,6 +167,8 @@ const Util = {
     }
 }
 
+//  Constante que cuida do formulário, com o envio de 
+// informações e verificações. ↓
 const Form = {
 
     // Propriedades que vem junto do formulário. ↓
@@ -209,7 +211,6 @@ const Form = {
         amount = Util.formatAmount(amount);
         date = Util.formatDate(date);
 
-        console.log(description, amount, date);
         return {
             description,
             amount,
@@ -235,7 +236,7 @@ const Form = {
             const transaction = Form.formatValues();
 
             // Os dados são salvos. ↓
-            BalanceValues.add(transaction);
+            Transactions.add(transaction);
 
             // Os campos são limpos. ↓
             Form.clearFields();
@@ -256,10 +257,9 @@ const App = {
     //  Aqui ele cria cada um dos <tr> na página e 
     // depois atualiza os valores na página. ↓
     init() {
-        BalanceValues.all.forEach(transaction => {
-            DOM.addTransaction(transaction);
-        })
-        DOM.updateBalanceValues();
+        Transactions.all.forEach(DOM.addTransaction);
+        DOM.updateBalance();
+        Storage.set(Transactions.all);
     },
 
     //  Função de recarregamento da página,
